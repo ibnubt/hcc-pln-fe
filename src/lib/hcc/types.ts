@@ -16,6 +16,8 @@ export interface Camera {
   /** Model yang sedang terpasang (dari assignment). */
   assigned_model_id?: string | null;
   assigned_model_name?: string | null;
+  /** URL stream siap-tonton (HLS .m3u8) dari rules.stream_fe — opsional. */
+  stream_url?: string | null;
   last_seen?: string | null;
   created_at?: string;
   updated_at?: string;

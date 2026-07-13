@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Link2, Cctv, RefreshCw, Unlink } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Search, Pencil, Trash2, Link2, Cctv, RefreshCw, Unlink, Video } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusDot } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ export default function CamerasPage() {
   const [editing, setEditing] = useState<Camera | "new" | null>(null);
   const [assigning, setAssigning] = useState<Camera | null>(null);
   const [deleting, setDeleting] = useState<Camera | null>(null);
+  const [watching, setWatching] = useState<Camera | null>(null);
   const [busy, setBusy] = useState(false);
 
   const cameras = data ?? [];
@@ -168,6 +169,11 @@ export default function CamerasPage() {
                     </TD>
                     <TD>
                       <div className="flex items-center justify-end gap-1">
+                        {c.stream_url && (
+                          <Button variant="ghost" size="icon" title="Live stream" onClick={() => setWatching(c)}>
+                            <Video className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" title="Assign model" onClick={() => setAssigning(c)}>
                           <Link2 className="h-4 w-4" />
                         </Button>
@@ -224,7 +230,88 @@ export default function CamerasPage() {
         title="Hapus kamera?"
         message={`Kamera "${deleting?.name}" beserta assignment-nya akan dihapus. Tindakan ini tidak bisa dibatalkan.`}
       />
+
+      {watching?.stream_url && (
+        <LiveStreamModal camera={watching} onClose={() => setWatching(null)} />
+      )}
     </div>
+  );
+}
+
+/** HLS (.m3u8) player: native on Safari/iOS, hls.js elsewhere. */
+function HlsPlayer({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    setErr(null);
+
+    // Safari / iOS play HLS natively — no library needed.
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      return;
+    }
+
+    let cancelled = false;
+    let hls: { destroy: () => void } | null = null;
+    import("hls.js")
+      .then(({ default: Hls }) => {
+        if (cancelled || !ref.current) return;
+        if (!Hls.isSupported()) {
+          setErr("Browser tidak mendukung pemutaran HLS.");
+          return;
+        }
+        const inst = new Hls({ enableWorker: true });
+        inst.on(Hls.Events.ERROR, (_evt, data) => {
+          if (data?.fatal) setErr("Gagal memuat stream (URL/CORS/offline).");
+        });
+        inst.loadSource(src);
+        inst.attachMedia(ref.current);
+        hls = inst;
+      })
+      .catch(() => setErr("Gagal memuat pemutar HLS."));
+
+    return () => {
+      cancelled = true;
+      hls?.destroy();
+    };
+  }, [src]);
+
+  return (
+    <div className="space-y-2">
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <video
+        ref={ref}
+        controls
+        autoPlay
+        muted
+        playsInline
+        className="aspect-video w-full rounded-lg border border-border bg-black"
+      />
+      {err && <p className="text-[11px] text-danger">{err}</p>}
+    </div>
+  );
+}
+
+function LiveStreamModal({ camera, onClose }: { camera: Camera; onClose: () => void }) {
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Live · ${camera.name}`}
+      description="Stream langsung kamera (HLS)."
+    >
+      {camera.stream_url ? (
+        <HlsPlayer src={camera.stream_url} />
+      ) : (
+        <p className="text-sm text-muted-foreground">Kamera ini tidak memiliki URL stream.</p>
+      )}
+      {camera.stream_url && (
+        <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{camera.stream_url}</p>
+      )}
+    </Modal>
   );
 }
 
@@ -246,7 +333,22 @@ function CameraForm({
   const [enabled, setEnabled] = useState(camera?.enabled ?? true);
   const [advanced, setAdvanced] = useState(false);
   const [aoi, setAoi] = useState(JSON.stringify(camera?.aoi ?? {}, null, 2));
-  const [rules, setRules] = useState(JSON.stringify(camera?.rules ?? {}, null, 2));
+  // Rules sebagai field ramah (bukan JSON mentah). Key lain yang tak dikenal tetap dipertahankan.
+  const initialRules = (camera?.rules ?? {}) as Record<string, unknown>;
+  const [labels, setLabels] = useState(
+    Array.isArray(initialRules.labels) ? (initialRules.labels as string[]).join(", ") : ""
+  );
+  const [sourceUrl, setSourceUrl] = useState(
+    typeof initialRules.source_url === "string" ? initialRules.source_url : ""
+  );
+  const [streamFe, setStreamFe] = useState(
+    typeof initialRules.stream_fe === "string" ? initialRules.stream_fe : ""
+  );
+  const [rulesRest] = useState<Record<string, unknown>>(() => {
+    const { labels: _l, source_url: _s, stream_fe: _f, ...rest } =
+      (camera?.rules ?? {}) as Record<string, unknown>;
+    return rest;
+  });
   const [busy, setBusy] = useState(false);
 
   async function submit() {
@@ -255,14 +357,21 @@ function CameraForm({
       return;
     }
     let aoiObj = {};
-    let rulesObj = {};
     try {
       aoiObj = JSON.parse(aoi || "{}");
-      rulesObj = JSON.parse(rules || "{}");
     } catch {
-      toast.error("AOI / Rules bukan JSON yang valid.");
+      toast.error("AOI bukan JSON yang valid.");
       return;
     }
+    // Rules dibangun dari field ramah + pertahankan key lain yang tak disurface.
+    const rulesObj: Record<string, unknown> = { ...rulesRest };
+    const labelList = toClassList(labels);
+    if (labelList.length) rulesObj.labels = labelList;
+    const su = sourceUrl.trim();
+    if (su) rulesObj.source_url = su;
+    const sf = streamFe.trim();
+    if (sf) rulesObj.stream_fe = sf;
+
     const payload = {
       name: name.trim(),
       group_name: groupName.trim() || null,
@@ -336,15 +445,21 @@ function CameraForm({
           onClick={() => setAdvanced((v) => !v)}
           className="text-[11px] font-medium text-primary hover:underline"
         >
-          {advanced ? "Sembunyikan" : "Tampilkan"} pengaturan lanjutan (AOI & Rules)
+          {advanced ? "Sembunyikan" : "Tampilkan"} pengaturan lanjutan (deteksi & stream)
         </button>
         {advanced && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="AOI (JSON)">
-              <Textarea value={aoi} onChange={(e) => setAoi(e.target.value)} rows={4} />
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+            <Field label="Label deteksi" hint="Kelas objek yang dideteksi, pisahkan dengan koma.">
+              <Input value={labels} onChange={(e) => setLabels(e.target.value)} placeholder="car, person" />
             </Field>
-            <Field label="Rules (JSON)">
-              <Textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={4} />
+            <Field label="Source URL (RTSP)" hint="Sumber stream untuk engine deteksi.">
+              <Input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="rtsp://…" />
+            </Field>
+            <Field label="Stream URL FE (HLS)" hint="Link .m3u8 untuk ditonton di dashboard. Kosongkan bila tak ada.">
+              <Input value={streamFe} onChange={(e) => setStreamFe(e.target.value)} placeholder="https://…/stream.m3u8" />
+            </Field>
+            <Field label="AOI (JSON)" hint="Area of Interest — poligon, format JSON.">
+              <Textarea value={aoi} onChange={(e) => setAoi(e.target.value)} rows={4} />
             </Field>
           </div>
         )}

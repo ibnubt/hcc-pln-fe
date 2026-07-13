@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 212 82% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 214 32% 93%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 25% 88%;
+    --input: 214 25% 85%;
+    --ring: 212 82% 43%;
+    --success: 152 62% 40%;
+    --warning: 38 92% 50%;
+    --danger: 0 72% 51%;
+    --radius: 0.75rem;
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+    --card: 222 44% 11%;
+    --card-foreground: 210 40% 96%;
+    --primary: 205 90% 55%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 18%;
+    --secondary-foreground: 210 40% 92%;
+    --muted: 217 33% 16%;
+    --muted-foreground: 215 20% 62%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 222 47% 11%;
+    --border: 217 33% 20%;
+    --input: 217 33% 24%;
+    --ring: 205 90% 55%;
+    --success: 152 55% 46%;
+    --warning: 38 92% 55%;
+    --danger: 0 72% 58%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Enterprise grid backdrop */
+  .cc-grid {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+  .glow-ring {
+    box-shadow: 0 0 0 1px hsl(var(--border)), 0 8px 30px -12px hsl(var(--primary) / 0.35);
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

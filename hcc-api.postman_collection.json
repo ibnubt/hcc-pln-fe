@@ -1,0 +1,368 @@
+{
+  "info": {
+    "_postman_id": "b7f0a1c2-3d4e-4f56-8a9b-0c1d2e3f4a5b",
+    "name": "HCC API",
+    "description": "Control-plane REST API for the HCC detection platform.\n\nAuth: every request sends `X-API-Key: {{apiKey}}` (collection-level). `/health` and `/docs` don't require it.\n\nSet the `baseUrl`, `apiKey`, and the id variables (cameraId / modelId / runId / detectionId) in the collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "apiKey", "value": "hcc_Api2026_devkey_change_me" },
+    { "key": "cameraId", "value": "" },
+    { "key": "modelId", "value": "" },
+    { "key": "runId", "value": "" },
+    { "key": "detectionId", "value": "1" },
+    { "key": "correctionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "System Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/system/status", "host": ["{{baseUrl}}"], "path": ["system", "status"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cameras",
+      "item": [
+        {
+          "name": "List Cameras",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cameras",
+              "host": ["{{baseUrl}}"],
+              "path": ["cameras"],
+              "query": [
+                { "key": "group", "value": "", "disabled": true },
+                { "key": "enabled", "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Camera",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"name\": \"gate-1\",\n  \"group_name\": \"north\",\n  \"stream_key\": \"example_cam_01\",\n  \"aoi\": {},\n  \"rules\": {},\n  \"whatsapp_targets\": [],\n  \"enabled\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/cameras", "host": ["{{baseUrl}}"], "path": ["cameras"] }
+          }
+        },
+        {
+          "name": "Get Camera",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/cameras/{{cameraId}}", "host": ["{{baseUrl}}"], "path": ["cameras", "{{cameraId}}"] }
+          }
+        },
+        {
+          "name": "Update Camera",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"enabled\": false\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/cameras/{{cameraId}}", "host": ["{{baseUrl}}"], "path": ["cameras", "{{cameraId}}"] }
+          }
+        },
+        {
+          "name": "Delete Camera",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/cameras/{{cameraId}}", "host": ["{{baseUrl}}"], "path": ["cameras", "{{cameraId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assignments",
+      "item": [
+        {
+          "name": "List Assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/assignments", "host": ["{{baseUrl}}"], "path": ["assignments"] }
+          }
+        },
+        {
+          "name": "Assign / Reassign Model",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"model_id\": \"{{modelId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/assignments/{{cameraId}}", "host": ["{{baseUrl}}"], "path": ["assignments", "{{cameraId}}"] }
+          }
+        },
+        {
+          "name": "Unassign",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/assignments/{{cameraId}}", "host": ["{{baseUrl}}"], "path": ["assignments", "{{cameraId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Models",
+      "item": [
+        {
+          "name": "List Models",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/models",
+              "host": ["{{baseUrl}}"],
+              "path": ["models"],
+              "query": [
+                { "key": "name", "value": "ppe", "disabled": true },
+                { "key": "status", "value": "ready", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload Model",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "ppe", "type": "text" },
+                { "key": "classes", "value": "person,helmet,vest", "type": "text" },
+                { "key": "status", "value": "ready", "type": "text" },
+                { "key": "file", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/models/upload", "host": ["{{baseUrl}}"], "path": ["models", "upload"] }
+          }
+        },
+        {
+          "name": "Get Model",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/models/{{modelId}}", "host": ["{{baseUrl}}"], "path": ["models", "{{modelId}}"] }
+          }
+        },
+        {
+          "name": "Delete Model",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/models/{{modelId}}", "host": ["{{baseUrl}}"], "path": ["models", "{{modelId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Training",
+      "item": [
+        {
+          "name": "Enqueue Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"model_name\": \"ppe\",\n  \"base_model_key\": null,\n  \"epochs\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/training/jobs", "host": ["{{baseUrl}}"], "path": ["training", "jobs"] }
+          }
+        },
+        {
+          "name": "List Runs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/training/runs",
+              "host": ["{{baseUrl}}"],
+              "path": ["training", "runs"],
+              "query": [
+                { "key": "model_name", "value": "ppe", "disabled": true },
+                { "key": "status", "value": "pending_review", "disabled": true },
+                { "key": "limit", "value": "50", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Run",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/training/runs/{{runId}}", "host": ["{{baseUrl}}"], "path": ["training", "runs", "{{runId}}"] }
+          }
+        },
+        {
+          "name": "Run Sample Video (presigned URL)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/training/runs/{{runId}}/sample-video", "host": ["{{baseUrl}}"], "path": ["training", "runs", "{{runId}}", "sample-video"] }
+          }
+        },
+        {
+          "name": "Promote Run",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/training/runs/{{runId}}/promote", "host": ["{{baseUrl}}"], "path": ["training", "runs", "{{runId}}", "promote"] }
+          }
+        },
+        {
+          "name": "Reject Run",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/training/runs/{{runId}}/reject", "host": ["{{baseUrl}}"], "path": ["training", "runs", "{{runId}}", "reject"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Detections",
+      "item": [
+        {
+          "name": "List Detections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/detections",
+              "host": ["{{baseUrl}}"],
+              "path": ["detections"],
+              "query": [
+                { "key": "camera_name", "value": "gate-1", "disabled": true },
+                { "key": "label", "value": "person", "disabled": true },
+                { "key": "review_status", "value": "pending", "disabled": true },
+                { "key": "since", "value": "2026-06-01T00:00:00", "disabled": true },
+                { "key": "limit", "value": "100", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Detection",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/detections/{{detectionId}}", "host": ["{{baseUrl}}"], "path": ["detections", "{{detectionId}}"] }
+          }
+        },
+        {
+          "name": "Detection Image (presigned URL)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/detections/{{detectionId}}/image", "host": ["{{baseUrl}}"], "path": ["detections", "{{detectionId}}", "image"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Corrections",
+      "item": [
+        {
+          "name": "Correct From Detection",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"detection_id\": 1,\n  \"model_name\": null,\n  \"camera_name\": null,\n  \"annotations\": [\n    { \"class\": \"person\", \"bbox\": [0.5, 0.5, 0.2, 0.4] }\n  ],\n  \"source\": \"human\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/corrections/from-detection", "host": ["{{baseUrl}}"], "path": ["corrections", "from-detection"] }
+          }
+        },
+        {
+          "name": "Correct Upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "model_name", "value": "ppe", "type": "text" },
+                { "key": "annotations", "value": "[{\"class\": \"person\", \"bbox\": [0.5, 0.5, 0.2, 0.4]}]", "type": "text" },
+                { "key": "camera_name", "value": "gate-1", "type": "text" },
+                { "key": "source", "value": "human", "type": "text" },
+                { "key": "file", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/corrections/upload", "host": ["{{baseUrl}}"], "path": ["corrections", "upload"] }
+          }
+        },
+        {
+          "name": "List Corrections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/corrections",
+              "host": ["{{baseUrl}}"],
+              "path": ["corrections"],
+              "query": [
+                { "key": "model_name", "value": "ppe", "disabled": true },
+                { "key": "consumed", "value": "false", "disabled": true },
+                { "key": "limit", "value": "100", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Correction",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/corrections/{{correctionId}}", "host": ["{{baseUrl}}"], "path": ["corrections", "{{correctionId}}"] }
+          }
+        }
+      ]
+    }
+  ]
+}

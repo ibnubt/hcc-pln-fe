@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" fill="none">
+  <rect width="640" height="360" fill="#0a1a3a"/>
+  <rect width="640" height="360" fill="url(#g)" opacity="0.5"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="640" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0a1a3a"/>
+      <stop offset="1" stop-color="#132a52"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#1372c9" stroke-opacity="0.25" stroke-width="1">
+    <path d="M0 40 H640 M0 80 H640 M0 120 H640 M0 160 H640 M0 200 H640 M0 240 H640 M0 280 H640 M0 320 H640"/>
+    <path d="M40 0 V360 M80 0 V360 M120 0 V360 M160 0 V360 M200 0 V360 M240 0 V360 M280 0 V360 M320 0 V360 M360 0 V360 M400 0 V360 M440 0 V360 M480 0 V360 M520 0 V360 M560 0 V360 M600 0 V360"/>
+  </g>
+  <rect x="248" y="96" width="150" height="200" rx="6" stroke="#38bdf8" stroke-width="2.5" fill="#38bdf8" fill-opacity="0.06"/>
+  <rect x="248" y="80" width="86" height="16" rx="3" fill="#38bdf8"/>
+  <text x="254" y="92" font-family="monospace" font-size="11" fill="#0a1a3a" font-weight="700">person 0.92</text>
+  <text x="320" y="336" font-family="monospace" font-size="13" fill="#7fa8d8" text-anchor="middle">HCC CCTV AI · frame preview (demo)</text>
+</svg>

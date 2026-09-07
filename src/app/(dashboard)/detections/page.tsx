@@ -1,31 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RefreshCw, ScanSearch, PencilRuler, ShieldAlert, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { RefreshCw, ScanSearch, PencilRuler, ShieldAlert, X, Shapes } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select, Field } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Modal } from "@/components/ui/modal";
 import { LoadingBlock, EmptyState, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { useHcc, api, ApiError } from "@/lib/hcc/client";
 import { reviewTone, isAlertLabel } from "@/lib/hcc/status";
 import { pct, relTime, formatDateTime, toClassList } from "@/lib/utils";
-import type { Detection, Camera, Model, Annotation } from "@/lib/hcc/types";
+import { AoiOverlay } from "@/components/camera/aoi-overlay";
+import type { Detection, Camera, Model, Annotation, AoiConfig } from "@/lib/hcc/types";
 
 export default function DetectionsPage() {
   const [camera, setCamera] = useState("");
   const [label, setLabel] = useState("");
   const [review, setReview] = useState("");
+  const [date, setDate] = useState("");
   const [limit, setLimit] = useState("60");
   const [live, setLive] = useState(true);
 
   const cameras = useHcc<Camera[]>("cameras");
   const models = useHcc<Model[]>("models");
   const { data, loading, error, refetch } = useHcc<Detection[]>("detections", {
-    query: { camera_name: camera, label, review_status: review, limit },
-    intervalMs: live ? 8000 : undefined,
+    // saat difilter per tanggal, jangan live-poll (data historis, tak berubah)
+    query: { camera_name: camera, label, review_status: review, date, limit },
+    intervalMs: live && !date ? 8000 : undefined,
   });
 
   const [selected, setSelected] = useState<Detection | null>(null);
@@ -45,7 +49,7 @@ export default function DetectionsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={camera} onChange={(e) => setCamera(e.target.value)} className="w-36">
+        <Select value={camera} onChange={(e) => setCamera(e.target.value)} className="w-48">
           <option value="">Semua kamera</option>
           {(cameras.data ?? []).map((c) => (
             <option key={c.id} value={c.name}>
@@ -65,6 +69,7 @@ export default function DetectionsPage() {
           <option value="confirmed">Terkonfirmasi</option>
           <option value="rejected">Ditolak</option>
         </Select>
+        <DatePicker value={date} onChange={setDate} className="w-44" placeholder="Semua tanggal" />
         <Select value={limit} onChange={(e) => setLimit(e.target.value)} className="w-24">
           <option value="30">30</option>
           <option value="60">60</option>
@@ -144,7 +149,7 @@ function BBoxFrame({ bbox, src = "/frame-placeholder.svg" }: { bbox?: number[]; 
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-pln-navy">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
       {box && (
         <div
           className="absolute rounded-sm border-2 border-pln-sky shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
@@ -158,13 +163,40 @@ function BBoxFrame({ bbox, src = "/frame-placeholder.svg" }: { bbox?: number[]; 
 function DetectionCard({ d, onClick }: { d: Detection; onClick: () => void }) {
   const alert = d.alert || isAlertLabel(d.label);
   const rev = reviewTone(d.review_status);
+  const ref = useRef<HTMLButtonElement>(null);
+  const [src, setSrc] = useState<string | undefined>(undefined);
+
+  // Ambil presigned image URL saat kartu mendekati viewport (frame 4K ~1MB → lazy).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let fetched = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (fetched || !entries.some((e) => e.isIntersecting)) return;
+        fetched = true;
+        io.disconnect();
+        api
+          .get<{ url: string }>(`detections/${d.id}/image`)
+          .then((r) => {
+            if (r.data?.url) setSrc(r.data.url);
+          })
+          .catch(() => {});
+      },
+      { rootMargin: "300px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [d.id]);
+
   return (
     <button
+      ref={ref}
       onClick={onClick}
       className="group overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
     >
       <div className="relative">
-        <BBoxFrame bbox={d.bbox} />
+        <BBoxFrame bbox={d.bbox} src={src} />
         {alert && (
           <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-danger px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
             <ShieldAlert className="h-2.5 w-2.5" /> Alert
@@ -201,6 +233,8 @@ function DetectionModal({
 }) {
   const [imgUrl, setImgUrl] = useState("/frame-placeholder.svg");
   const [correcting, setCorrecting] = useState(false);
+  const [aoiZones, setAoiZones] = useState<AoiConfig["zones"]>([]);
+  const [showAoi, setShowAoi] = useState(false);
   const alert = detection.alert || isAlertLabel(detection.label);
   const rev = reviewTone(detection.review_status);
 
@@ -216,6 +250,21 @@ function DetectionModal({
       active = false;
     };
   }, [detection.id]);
+
+  // AoI kamera → overlay konfirmasi visual di atas frame
+  useEffect(() => {
+    if (!detection.camera_id) return;
+    let active = true;
+    api
+      .get<AoiConfig>(`cameras/${detection.camera_id}/aoi`)
+      .then((r) => {
+        if (active) setAoiZones(r.data.zones ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [detection.camera_id]);
 
   if (correcting) {
     return (
@@ -248,8 +297,25 @@ function DetectionModal({
       }
     >
       <div className="space-y-3">
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="relative overflow-hidden rounded-lg border border-border">
           <BBoxFrame bbox={detection.bbox} src={imgUrl} />
+          {showAoi && <AoiOverlay zones={aoiZones} />}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAoi((v) => !v)}
+            disabled={aoiZones.length === 0}
+            title={aoiZones.length === 0 ? "Kamera ini tidak punya zona AoI" : undefined}
+          >
+            <Shapes className="h-4 w-4" />
+            {showAoi ? "Sembunyikan AoI" : "Tampilkan AoI"}
+            {aoiZones.length > 0 ? ` (${aoiZones.length})` : ""}
+          </Button>
+          {aoiZones.length === 0 && (
+            <span className="text-[11px] text-muted-foreground">Tanpa zona AoI — deteksi seluruh frame.</span>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={alert ? "danger" : "primary"}>{detection.label}</Badge>

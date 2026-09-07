@@ -23,6 +23,17 @@ export interface Camera {
   updated_at?: string;
 }
 
+/** Zona terbatas (AoI): poligon titik ternormalisasi [x,y] (0..1), minimal 3 titik. */
+export interface AoiZone {
+  name: string;
+  polygon: number[][];
+}
+
+/** Konfigurasi AoI kamera. zones kosong = seluruh frame. */
+export interface AoiConfig {
+  zones: AoiZone[];
+}
+
 export type ModelStatus = "ready" | "training" | "draft" | "archived" | "failed";
 
 export interface Model {
@@ -82,6 +93,7 @@ export type ReviewStatus = "pending" | "confirmed" | "rejected";
 
 export interface Detection {
   id: number;
+  camera_id?: string;
   camera_name: string;
   model_name?: string | null;
   label: string;

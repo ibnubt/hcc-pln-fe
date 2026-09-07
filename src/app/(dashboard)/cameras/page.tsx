@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Link2, Cctv, RefreshCw, Unlink, Video } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Link2, Cctv, RefreshCw, Unlink, Video, Shapes } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusDot } from "@/components/ui/badge";
-import { Input, Select, Textarea, Field } from "@/components/ui/input";
+import { Input, Select, Field } from "@/components/ui/input";
 import { Table, THead, TBody, TH, TD, TR } from "@/components/ui/table";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { LoadingBlock, EmptyState, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { useHcc, api, ApiError } from "@/lib/hcc/client";
+import { attachHls } from "@/lib/hls";
 import { cameraTone } from "@/lib/hcc/status";
 import { toClassList } from "@/lib/utils";
+import { AoiEditorModal } from "@/components/camera/aoi-editor";
 import type { Camera, Model } from "@/lib/hcc/types";
 
 export default function CamerasPage() {
@@ -26,6 +28,7 @@ export default function CamerasPage() {
   const [assigning, setAssigning] = useState<Camera | null>(null);
   const [deleting, setDeleting] = useState<Camera | null>(null);
   const [watching, setWatching] = useState<Camera | null>(null);
+  const [editingAoi, setEditingAoi] = useState<Camera | null>(null);
   const [busy, setBusy] = useState(false);
 
   const cameras = data ?? [];
@@ -174,6 +177,9 @@ export default function CamerasPage() {
                             <Video className="h-4 w-4" />
                           </Button>
                         )}
+                        <Button variant="ghost" size="icon" title="Area deteksi (AoI)" onClick={() => setEditingAoi(c)}>
+                          <Shapes className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" title="Assign model" onClick={() => setAssigning(c)}>
                           <Link2 className="h-4 w-4" />
                         </Button>
@@ -234,6 +240,10 @@ export default function CamerasPage() {
       {watching?.stream_url && (
         <LiveStreamModal camera={watching} onClose={() => setWatching(null)} />
       )}
+
+      {editingAoi && (
+        <AoiEditorModal camera={editingAoi} onClose={() => setEditingAoi(null)} onSaved={refetch} />
+      )}
     </div>
   );
 }
@@ -247,36 +257,7 @@ function HlsPlayer({ src }: { src: string }) {
     const video = ref.current;
     if (!video) return;
     setErr(null);
-
-    // Safari / iOS play HLS natively — no library needed.
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-      return;
-    }
-
-    let cancelled = false;
-    let hls: { destroy: () => void } | null = null;
-    import("hls.js")
-      .then(({ default: Hls }) => {
-        if (cancelled || !ref.current) return;
-        if (!Hls.isSupported()) {
-          setErr("Browser tidak mendukung pemutaran HLS.");
-          return;
-        }
-        const inst = new Hls({ enableWorker: true });
-        inst.on(Hls.Events.ERROR, (_evt, data) => {
-          if (data?.fatal) setErr("Gagal memuat stream (URL/CORS/offline).");
-        });
-        inst.loadSource(src);
-        inst.attachMedia(ref.current);
-        hls = inst;
-      })
-      .catch(() => setErr("Gagal memuat pemutar HLS."));
-
-    return () => {
-      cancelled = true;
-      hls?.destroy();
-    };
+    return attachHls(video, src, setErr);
   }, [src]);
 
   return (
@@ -332,7 +313,6 @@ function CameraForm({
   const [wa, setWa] = useState((camera?.whatsapp_targets ?? []).join(", "));
   const [enabled, setEnabled] = useState(camera?.enabled ?? true);
   const [advanced, setAdvanced] = useState(false);
-  const [aoi, setAoi] = useState(JSON.stringify(camera?.aoi ?? {}, null, 2));
   // Rules sebagai field ramah (bukan JSON mentah). Key lain yang tak dikenal tetap dipertahankan.
   const initialRules = (camera?.rules ?? {}) as Record<string, unknown>;
   const [labels, setLabels] = useState(
@@ -356,13 +336,6 @@ function CameraForm({
       toast.error("Nama dan stream key wajib diisi.");
       return;
     }
-    let aoiObj = {};
-    try {
-      aoiObj = JSON.parse(aoi || "{}");
-    } catch {
-      toast.error("AOI bukan JSON yang valid.");
-      return;
-    }
     // Rules dibangun dari field ramah + pertahankan key lain yang tak disurface.
     const rulesObj: Record<string, unknown> = { ...rulesRest };
     const labelList = toClassList(labels);
@@ -378,7 +351,6 @@ function CameraForm({
       stream_key: streamKey.trim(),
       whatsapp_targets: toClassList(wa),
       enabled,
-      aoi: aoiObj,
       rules: rulesObj,
     };
     setBusy(true);
@@ -458,9 +430,10 @@ function CameraForm({
             <Field label="Stream URL FE (HLS)" hint="Link .m3u8 untuk ditonton di dashboard. Kosongkan bila tak ada.">
               <Input value={streamFe} onChange={(e) => setStreamFe(e.target.value)} placeholder="https://…/stream.m3u8" />
             </Field>
-            <Field label="AOI (JSON)" hint="Area of Interest — poligon, format JSON.">
-              <Textarea value={aoi} onChange={(e) => setAoi(e.target.value)} rows={4} />
-            </Field>
+            <p className="text-[11px] text-muted-foreground">
+              Area Deteksi (AoI) diatur lewat tombol <span className="font-medium text-foreground">Area deteksi</span> di
+              tabel — editor poligon visual.
+            </p>
           </div>
         )}
       </div>
